@@ -1,0 +1,67 @@
+name: Prepare LX06 wake-word model
+
+on:
+  push:
+    paths:
+      - .github/workflows/lx06-assets.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  prepare-assets:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Download and verify public model and certificates
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --fail --location --retry 3 --connect-timeout 15 \
+            -o model.tar.bz2 \
+            https://github.com/k2-fsa/sherpa-onnx/releases/download/kws-models/sherpa-onnx-kws-zipformer-zh-en-3M-2025-12-20.tar.bz2
+          echo '68447f4fbc67e70eee3a93961f36e81e98f47aef73ce7e7ca00885c6cd3616a6  model.tar.bz2' | sha256sum -c -
+          mkdir assets
+          curl --fail --location --retry 3 --connect-timeout 15 \
+            -o assets/ca-certificates.crt https://curl.se/ca/cacert-2026-11-05.pem
+          echo '427c064216761a1e72a8b30f0d954d08cb6e4435a82091fb865afd20c8497285  assets/ca-certificates.crt' | sha256sum -c -
+
+      - name: Extract the documented matching model files
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import pathlib
+          import tarfile
+
+          base = 'sherpa-onnx-kws-zipformer-zh-en-3M-2025-12-20/'
+          files = {
+              'encoder-epoch-13-avg-2-chunk-8-left-64.int8.onnx': 'encoder.onnx',
+              'decoder-epoch-13-avg-2-chunk-8-left-64.onnx': 'decoder.onnx',
+              'joiner-epoch-13-avg-2-chunk-8-left-64.int8.onnx': 'joiner.onnx',
+              'tokens.txt': 'tokens.txt',
+              'en.phone': 'en.phone',
+          }
+          with tarfile.open('model.tar.bz2', 'r:bz2') as archive:
+              for source, target in files.items():
+                  member = archive.getmember(base + source)
+                  if not member.isfile() or not 0 < member.size <= 20000000:
+                      raise ValueError('Unexpected archive entry: ' + source)
+                  with archive.extractfile(member) as reader:
+                      pathlib.Path('assets', target).write_bytes(reader.read())
+          PY
+          (cd assets && sha256sum * > SHA256SUMS)
+          tar -czf lx06-model-assets.tar.gz assets
+          sha256sum lx06-model-assets.tar.gz > lx06-model-assets.tar.gz.sha256
+
+      - name: Upload verified public model files
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: lx06-model-assets
+          path: |
+            lx06-model-assets.tar.gz
+            lx06-model-assets.tar.gz.sha256
+          if-no-files-found: error
+          retention-days: 3
+
