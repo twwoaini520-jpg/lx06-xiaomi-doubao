@@ -19,18 +19,17 @@ jobs:
         run: |
           set -euo pipefail
           curl --fail --location --retry 3 --connect-timeout 15 \
-            -o khadas-usb-driver.zip https://dl.khadas.com/products/vim1s/tools/usb-driver.zip
-          test "$(stat -c %s khadas-usb-driver.zip)" = 5955932
-          sha256sum khadas-usb-driver.zip > khadas-usb-driver.zip.sha256
-          unzip -t khadas-usb-driver.zip >/dev/null
+            -o khadas-usb-burning-tool.zip https://dl.khadas.com/products/vim3/tools/usb-burning-tool-v2.2.0.zip
+          test "$(stat -c %s khadas-usb-burning-tool.zip)" = 8575622
+          sha256sum khadas-usb-burning-tool.zip > khadas-usb-burning-tool.zip.sha256
+          unzip -t khadas-usb-burning-tool.zip >/dev/null
 
       - name: Upload archive for inspection only
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: lx06-driver-inspection
           path: |
-            khadas-usb-driver.zip
-            khadas-usb-driver.zip.sha256
+            khadas-usb-burning-tool.zip
+            khadas-usb-burning-tool.zip.sha256
           if-no-files-found: error
           retention-days: 3
-
