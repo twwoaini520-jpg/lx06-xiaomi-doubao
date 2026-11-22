@@ -2,6 +2,9 @@ name: Prepare Linux USB diagnostic utility
 
 on:
   workflow_dispatch:
+  push:
+    paths:
+      - .github/workflows/lx06-linux-usb.yml
 
 permissions:
   contents: read
@@ -45,6 +48,19 @@ jobs:
           cd ..
           tar -czf lx06-linux-usb-tool.tar.gz -C bundle .
           sha256sum lx06-linux-usb-tool.tar.gz > lx06-linux-usb-tool.tar.gz.sha256
+
+      - name: Check the Linux tool with no attached speaker
+        shell: bash
+        run: |
+          set -euo pipefail
+          LD_LIBRARY_PATH="$PWD/bundle/lib" ldd bundle/update
+          set +e
+          timeout -k 2s 3s env LD_LIBRARY_PATH="$PWD/bundle/lib" ./bundle/update identify > no-device.log 2>&1
+          code=$?
+          set -e
+          printf 'NO_DEVICE_EXIT: %s\n' "$code"
+          head -c 1200 no-device.log || true
+          if [ "$code" -eq 139 ] || [ "$code" -eq 127 ]; then exit 1; fi
 
       - name: Upload the prepared utility
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
