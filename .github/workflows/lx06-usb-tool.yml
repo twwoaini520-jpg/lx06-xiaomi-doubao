@@ -1,9 +1,6 @@
 name: Prepare LX06 USB utility
 
 on:
-  push:
-    paths:
-      - .github/workflows/lx06-usb-tool.yml
   workflow_dispatch:
 
 permissions:
