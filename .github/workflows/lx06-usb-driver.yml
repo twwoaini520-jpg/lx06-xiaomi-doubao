@@ -23,6 +23,12 @@ jobs:
           test "$(stat -c %s khadas-usb-burning-tool.zip)" = 8575622
           sha256sum khadas-usb-burning-tool.zip > khadas-usb-burning-tool.zip.sha256
           unzip -t khadas-usb-burning-tool.zip >/dev/null
+          unzip -p khadas-usb-burning-tool.zip setup_v2.2.0.exe > installer-for-inspection.exe
+          if 7z l installer-for-inspection.exe > installer-contents.txt; then
+            grep -iE 'worldcup|libusb|\.inf|\.cat|\.sys' installer-contents.txt | head -100 || true
+          else
+            echo 'Installer contents could not be listed without execution.'
+          fi
 
       - name: Upload archive for inspection only
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
