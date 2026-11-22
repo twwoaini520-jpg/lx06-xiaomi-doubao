@@ -1,9 +1,6 @@
 name: Inspect USB driver package
 
 on:
-  push:
-    paths:
-      - .github/workflows/lx06-usb-driver.yml
   workflow_dispatch:
 
 permissions:
