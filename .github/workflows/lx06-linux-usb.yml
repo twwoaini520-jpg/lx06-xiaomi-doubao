@@ -1,9 +1,6 @@
 name: Prepare Linux USB diagnostic utility
 
 on:
-  push:
-    paths:
-      - .github/workflows/lx06-linux-usb.yml
   workflow_dispatch:
 
 permissions:
