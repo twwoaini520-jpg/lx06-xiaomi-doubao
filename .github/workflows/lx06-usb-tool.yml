@@ -1,0 +1,49 @@
+name: Prepare LX06 USB utility
+
+on:
+  push:
+    paths:
+      - .github/workflows/lx06-usb-tool.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  prepare:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Download and verify the Khadas vendor utility files
+        shell: bash
+        run: |
+          set -euo pipefail
+          base=https://raw.githubusercontent.com/khadas/utils/65e3fb146f438ec2c79dce5a2b87790798ca475d/aml-flash-tool/tools/windows
+          mkdir utility
+          while read -r expected name; do
+            curl --fail --location --retry 3 --connect-timeout 15 -o "utility/$name" "$base/$name"
+            actual=$(git hash-object "utility/$name")
+            test "$actual" = "$expected" || { echo "Checksum mismatch: $name" >&2; exit 1; }
+          done <<'HASHES'
+          b754a74399b79526408ed4d67ceed26c5ae59eaa AmlLibusb.dll
+          0b1b44f3233467300ec5d10a2aed621c1b1f86e4 AmlUsbScanX3.dll
+          7c86d102210d2b09201d7aae806d80db9b5bec61 Amldbglog.dll
+          8da82925b77eceb6788a15f79b98eb1ba943daec UsbRomDrv.dll
+          8502dfae5e0c30113d03c36cdb8ddaee1dce94c0 msvcp100.dll
+          100427528e1a7c506cf91f9e95b58e7c997ccaa7 msvcp140.dll
+          fd91c89d8bfb2cdd91b16735d0d31fa000df989b msvcr100.dll
+          775e212fc731534ba46ab8cb837aabb52ef0afa0 update.exe
+          d380c99968108f791fac7544c28a07091db1fa17 vccorlib140.dll
+          bc59b97fe6094314272cd0c38c5dd99198f137d4 vcruntime140.dll
+          HASHES
+          (cd utility && sha256sum * > SHA256SUMS)
+          printf '%s\n' 'Source: khadas/utils, revision 65e3fb146f438ec2c79dce5a2b87790798ca475d' > utility/SOURCE.txt
+
+      - name: Upload verified utility files
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: lx06-usb-utility
+          path: utility/
+          if-no-files-found: error
+          retention-days: 3
+
