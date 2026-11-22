@@ -32,13 +32,25 @@ jobs:
             innoextract -l installer-for-inspection.exe > installer-contents.txt
             grep -iE 'worldcup|libusb|\.inf|\.cat|\.sys' installer-contents.txt | head -100 || true
           fi
+          command -v innoextract >/dev/null || { sudo apt-get update -qq; sudo apt-get install -y --no-install-recommends innoextract; }
+          innoextract -s -d extracted installer-for-inspection.exe
+          test -f extracted/app/WorldCup_Device/WorldCup_Device.inf
+          cp -a extracted/app/WorldCup_Device ./WorldCup_Device
+          python3 - <<'PY'
+          from pathlib import Path
+          b = Path('WorldCup_Device/WorldCup_Device.inf').read_bytes()
+          text = b.decode('utf-16' if b.startswith((b'\xff\xfe', b'\xfe\xff')) else 'utf-8-sig')
+          assert 'VID_1B8E&PID_C003' in text.upper(), 'Expected WorldCup device ID not found'
+          print('WorldCup VID/PID matched')
+          PY
+          find WorldCup_Device -type f -print0 | sort -z | xargs -0 sha256sum > WorldCup_Device.sha256
 
       - name: Upload archive for inspection only
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: lx06-driver-inspection
           path: |
-            khadas-usb-burning-tool.zip
-            khadas-usb-burning-tool.zip.sha256
+            WorldCup_Device/
+            WorldCup_Device.sha256
           if-no-files-found: error
           retention-days: 3
