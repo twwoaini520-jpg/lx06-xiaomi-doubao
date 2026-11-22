@@ -1,9 +1,6 @@
 name: Build LX06 speaker program
 
 on:
-  push:
-    paths:
-      - .github/workflows/lx06-cloud-build.yml
   workflow_dispatch:
 
 permissions:
