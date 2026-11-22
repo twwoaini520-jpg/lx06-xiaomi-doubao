@@ -1,0 +1,60 @@
+name: Prepare Linux USB diagnostic utility
+
+on:
+  push:
+    paths:
+      - .github/workflows/lx06-linux-usb.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  prepare:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Fetch and check the public Linux USB utility
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p bundle/lib stage
+          curl --fail --location --retry 3 --connect-timeout 15 \
+            -o bundle/update \
+            https://raw.githubusercontent.com/khadas/utils/65e3fb146f438ec2c79dce5a2b87790798ca475d/aml-flash-tool/tools/linux-x86/update
+          test "$(git hash-object bundle/update)" = 6f9864b425fb5d487ac87ab54d82ba65eb0383f8
+          readelf -h bundle/update | grep -Eq 'Class:[[:space:]]+ELF64'
+          readelf -h bundle/update | grep -Eq 'Machine:[[:space:]]+Advanced Micro Devices X86-64'
+          readelf -d bundle/update | grep -F 'libusb-0.1.so.4'
+          chmod 755 bundle/update
+
+      - name: Prepare a private copy of the official Ubuntu USB library
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          cd stage
+          apt-get download libusb-0.1-4:amd64
+          package=$(find . -maxdepth 1 -name 'libusb-0.1-4_*_amd64.deb' -print -quit)
+          test -n "$package"
+          dpkg-deb -x "$package" extracted
+          library=$(find extracted -name 'libusb-0.1.so.4.*' -type f -print -quit)
+          test -n "$library"
+          cp "$library" ../bundle/lib/libusb-0.1.so.4
+          cd ../bundle
+          sha256sum update lib/libusb-0.1.so.4 > SHA256SUMS
+          printf '%s\n' 'USB tool source: khadas/utils revision 65e3fb146f438ec2c79dce5a2b87790798ca475d' > SOURCE.txt
+          printf '%s\n' 'USB library source: Ubuntu 24.04 libusb-0.1-4:amd64' >> SOURCE.txt
+          cd ..
+          tar -czf lx06-linux-usb-tool.tar.gz -C bundle .
+          sha256sum lx06-linux-usb-tool.tar.gz > lx06-linux-usb-tool.tar.gz.sha256
+
+      - name: Upload the prepared utility
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: lx06-linux-usb-tool
+          path: |
+            lx06-linux-usb-tool.tar.gz
+            lx06-linux-usb-tool.tar.gz.sha256
+          if-no-files-found: error
+          retention-days: 3
