@@ -1,9 +1,6 @@
 name: Prepare LX06 firmware files
 
 on:
-  push:
-    paths:
-      - .github/workflows/lx06-firmware-assets.yml
   workflow_dispatch:
 
 permissions:
