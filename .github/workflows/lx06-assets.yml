@@ -1,9 +1,6 @@
 name: Prepare LX06 wake-word model
 
 on:
-  push:
-    paths:
-      - .github/workflows/lx06-assets.yml
   workflow_dispatch:
 
 permissions:
