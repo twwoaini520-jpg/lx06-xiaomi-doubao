@@ -1,0 +1,68 @@
+name: Build LX06 speaker program
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-lx06:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 150
+    env:
+      SOURCE_SHA: f721e69cf820781fa3034fee1f0e7a347a472e10
+      BUILD_JOBS: '2'
+    steps:
+      - name: Download the reviewed LX06 source revision
+        shell: bash
+        run: |
+          set -euo pipefail
+          git init source
+          git -C source remote add origin https://github.com/dudulabubu/lx06-xiaomi-doubao.git
+          git -C source fetch --depth 1 origin "$SOURCE_SHA"
+          git -C source checkout --detach FETCH_HEAD
+          test "$(git -C source rev-parse HEAD)" = "$SOURCE_SHA"
+
+      - name: Build the cross-compiler image and sherpa-onnx libraries
+        working-directory: source
+        shell: bash
+        run: bash xiaoai-plus/toolchain/build-sherpa-static.sh
+
+      - name: Build the LX06 program
+        working-directory: source
+        shell: bash
+        run: bash scripts/build_lx06.sh
+
+      - name: Check ARM format and prepare files
+        shell: bash
+        run: |
+          set -euo pipefail
+          binary=source/xiaoai-plus/build-armv7/xiaoai_plus_speaker
+          test -s "$binary"
+          readelf -h "$binary" | grep -Eq 'Class:[[:space:]]+ELF32'
+          readelf -h "$binary" | grep -Eq 'Machine:[[:space:]]+ARM'
+          if readelf -l "$binary" | grep -q 'INTERP'; then
+            echo 'Unexpected dynamic interpreter in speaker binary' >&2
+            exit 1
+          fi
+          mkdir -p lx06-build/keywords
+          cp "$binary" lx06-build/xiaoai_plus_speaker
+          cp source/xiaoai-plus/keywords/keywords_doubao_repeat_end.txt lx06-build/keywords/
+          cp source/xiaoai-plus/config.ini.example lx06-build/
+          cp source/LICENSE lx06-build/LICENSE
+          printf 'Source revision: %s\n' "$SOURCE_SHA" > lx06-build/SOURCE.txt
+          (cd lx06-build && sha256sum xiaoai_plus_speaker > SHA256SUMS)
+          tar -czf lx06-compiled-files.tar.gz -C lx06-build .
+          sha256sum lx06-compiled-files.tar.gz > lx06-compiled-files.tar.gz.sha256
+
+      - name: Upload compiled files
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: lx06-compiled-files
+          path: |
+            lx06-compiled-files.tar.gz
+            lx06-compiled-files.tar.gz.sha256
+          if-no-files-found: error
+          retention-days: 3
+
